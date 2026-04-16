@@ -27,11 +27,7 @@ RUN echo '<Directory /var/www/html>' > /etc/apache2/conf-available/app.conf && \
     echo '</Directory>' >> /etc/apache2/conf-available/app.conf && \
     a2enconf app
 
-# Write a clean Apache ports config at build time — overwritten at runtime
-# Write startup script that replaces the port correctly
 COPY start.sh /start.sh
 RUN chmod +x /start.sh
-
-EXPOSE 8080
 
 CMD ["/start.sh"]

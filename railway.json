@@ -5,8 +5,9 @@
     "dockerfilePath": "Dockerfile"
   },
   "deploy": {
-    "startCommand": "apache2-foreground",
+    "startCommand": "/start.sh",
     "healthcheckPath": "/login.html",
+    "healthcheckTimeout": 60,
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 3
   }

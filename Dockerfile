@@ -1,12 +1,7 @@
 FROM php:8.2-apache
 
 # Install PHP extensions
-RUN docker-php-ext-install pdo pdo_mysql mysqli
-
-# Install curl for SMS feature
-RUN apt-get update && apt-get install -y libcurl4-openssl-dev && \
-    docker-php-ext-install curl && \
-    rm -rf /var/lib/apt/lists/*
+RUN docker-php-ext-install pdo pdo_mysql mysqli curl
 
 # Enable Apache modules
 RUN a2enmod rewrite headers
@@ -20,7 +15,7 @@ RUN chown -R www-data:www-data /var/www/html && \
     mkdir -p /var/www/html/img && \
     chown www-data:www-data /var/www/html/img
 
-# Allow .htaccess overrides and set DirectoryIndex
+# Allow .htaccess and set DirectoryIndex
 RUN echo '<Directory /var/www/html>\n\
     Options Indexes FollowSymLinks\n\
     AllowOverride All\n\
@@ -29,7 +24,14 @@ RUN echo '<Directory /var/www/html>\n\
 </Directory>' > /etc/apache2/conf-available/app.conf && \
     a2enconf app
 
-# ✅ KEY FIX: Railway uses $PORT env var — Apache must listen on it
-CMD bash -c "sed -i 's/Listen 80/Listen ${PORT:-80}/' /etc/apache2/ports.conf && \
-    sed -i 's/:80>/:${PORT:-80}>/' /etc/apache2/sites-enabled/000-default.conf && \
-    apache2-foreground"
+# Create startup script
+RUN echo '#!/bin/bash\n\
+export APACHE_PORT=${PORT:-8080}\n\
+echo "Listen ${APACHE_PORT}" > /etc/apache2/ports.conf\n\
+sed -i "s/<VirtualHost \*:80>/<VirtualHost *:${APACHE_PORT}>/" /etc/apache2/sites-enabled/000-default.conf\n\
+echo "Starting Apache on port ${APACHE_PORT}"\n\
+exec apache2-foreground' > /start.sh && chmod +x /start.sh
+
+EXPOSE 8080
+
+CMD ["/start.sh"]

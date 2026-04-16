@@ -1,7 +1,10 @@
 FROM php:8.2-apache
 
-# Install PHP extensions
-RUN docker-php-ext-install pdo pdo_mysql mysqli curl
+# Install system dependencies first, then PHP extensions
+RUN apt-get update && apt-get install -y \
+    libcurl4-openssl-dev \
+    && docker-php-ext-install pdo pdo_mysql mysqli curl \
+    && rm -rf /var/lib/apt/lists/*
 
 # Enable Apache modules
 RUN a2enmod rewrite headers
@@ -24,13 +27,13 @@ RUN echo '<Directory /var/www/html>\n\
 </Directory>' > /etc/apache2/conf-available/app.conf && \
     a2enconf app
 
-# Create startup script
-RUN echo '#!/bin/bash\n\
-export APACHE_PORT=${PORT:-8080}\n\
+# Startup script: set Apache port from Railway's $PORT env var
+RUN printf '#!/bin/bash\n\
+APACHE_PORT=${PORT:-8080}\n\
 echo "Listen ${APACHE_PORT}" > /etc/apache2/ports.conf\n\
-sed -i "s/<VirtualHost \*:80>/<VirtualHost *:${APACHE_PORT}>/" /etc/apache2/sites-enabled/000-default.conf\n\
-echo "Starting Apache on port ${APACHE_PORT}"\n\
-exec apache2-foreground' > /start.sh && chmod +x /start.sh
+sed -i "s/<VirtualHost \\*:80>/<VirtualHost *:${APACHE_PORT}>/" /etc/apache2/sites-enabled/000-default.conf\n\
+echo "Apache starting on port ${APACHE_PORT}"\n\
+exec apache2-foreground\n' > /start.sh && chmod +x /start.sh
 
 EXPOSE 8080
 

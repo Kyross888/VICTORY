@@ -2,22 +2,23 @@
 set -e
 
 APACHE_PORT="${PORT:-8080}"
-echo "==> PORT env is: $PORT"
 echo "==> Starting Apache on port: $APACHE_PORT"
 
-# Rewrite ports.conf
+# Completely rewrite ports.conf from scratch
 echo "Listen $APACHE_PORT" > /etc/apache2/ports.conf
 
-# Rewrite the VirtualHost line
-sed -i "s/*:80/*:$APACHE_PORT/g" /etc/apache2/sites-enabled/000-default.conf
+# Completely rewrite the default vhost from scratch
+cat > /etc/apache2/sites-enabled/000-default.conf << VHOST
+<VirtualHost *:${APACHE_PORT}>
+    DocumentRoot /var/www/html
+    ErrorLog \${APACHE_LOG_DIR}/error.log
+    CustomLog \${APACHE_LOG_DIR}/access.log combined
+</VirtualHost>
+VHOST
 
-# Suppress ServerName warning
-grep -q "ServerName" /etc/apache2/apache2.conf || echo "ServerName localhost" >> /etc/apache2/apache2.conf
+# Fix MPM conflict - disable event, enable prefork (required for mod_php)
+a2dismod mpm_event 2>/dev/null || true
+a2enmod mpm_prefork 2>/dev/null || true
 
-# Print config for debug
-echo "==> ports.conf:"
-cat /etc/apache2/ports.conf
-echo "==> VirtualHost line:"
-grep VirtualHost /etc/apache2/sites-enabled/000-default.conf
-
+echo "==> Apache config ready, starting..."
 exec apache2-foreground

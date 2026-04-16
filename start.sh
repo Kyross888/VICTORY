@@ -1,18 +1,23 @@
 #!/bin/bash
 set -e
 
-# Railway injects $PORT — default to 8080 if not set
 APACHE_PORT="${PORT:-8080}"
+echo "==> PORT env is: $PORT"
+echo "==> Starting Apache on port: $APACHE_PORT"
 
-echo "==> Starting Apache on port $APACHE_PORT"
-
-# Replace the Listen directive
+# Rewrite ports.conf
 echo "Listen $APACHE_PORT" > /etc/apache2/ports.conf
 
-# Replace the VirtualHost port
-sed -i "s/\*:80/*:$APACHE_PORT/" /etc/apache2/sites-enabled/000-default.conf
+# Rewrite the VirtualHost line
+sed -i "s/*:80/*:$APACHE_PORT/g" /etc/apache2/sites-enabled/000-default.conf
 
-# Also update the ServerName to avoid warnings
-echo "ServerName localhost" >> /etc/apache2/apache2.conf
+# Suppress ServerName warning
+grep -q "ServerName" /etc/apache2/apache2.conf || echo "ServerName localhost" >> /etc/apache2/apache2.conf
+
+# Print config for debug
+echo "==> ports.conf:"
+cat /etc/apache2/ports.conf
+echo "==> VirtualHost line:"
+grep VirtualHost /etc/apache2/sites-enabled/000-default.conf
 
 exec apache2-foreground

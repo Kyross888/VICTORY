@@ -1,6 +1,6 @@
 FROM php:8.2-apache
 
-# Install system dependencies first, then PHP extensions
+# Install system dependencies + PHP extensions
 RUN apt-get update && apt-get install -y \
     libcurl4-openssl-dev \
     && docker-php-ext-install pdo pdo_mysql mysqli curl \
@@ -19,21 +19,18 @@ RUN chown -R www-data:www-data /var/www/html && \
     chown www-data:www-data /var/www/html/img
 
 # Allow .htaccess and set DirectoryIndex
-RUN echo '<Directory /var/www/html>\n\
-    Options Indexes FollowSymLinks\n\
-    AllowOverride All\n\
-    Require all granted\n\
-    DirectoryIndex login.html index.html index.php\n\
-</Directory>' > /etc/apache2/conf-available/app.conf && \
+RUN echo '<Directory /var/www/html>' > /etc/apache2/conf-available/app.conf && \
+    echo '    Options Indexes FollowSymLinks' >> /etc/apache2/conf-available/app.conf && \
+    echo '    AllowOverride All' >> /etc/apache2/conf-available/app.conf && \
+    echo '    Require all granted' >> /etc/apache2/conf-available/app.conf && \
+    echo '    DirectoryIndex login.html index.html index.php' >> /etc/apache2/conf-available/app.conf && \
+    echo '</Directory>' >> /etc/apache2/conf-available/app.conf && \
     a2enconf app
 
-# Startup script: set Apache port from Railway's $PORT env var
-RUN printf '#!/bin/bash\n\
-APACHE_PORT=${PORT:-8080}\n\
-echo "Listen ${APACHE_PORT}" > /etc/apache2/ports.conf\n\
-sed -i "s/<VirtualHost \\*:80>/<VirtualHost *:${APACHE_PORT}>/" /etc/apache2/sites-enabled/000-default.conf\n\
-echo "Apache starting on port ${APACHE_PORT}"\n\
-exec apache2-foreground\n' > /start.sh && chmod +x /start.sh
+# Write a clean Apache ports config at build time — overwritten at runtime
+# Write startup script that replaces the port correctly
+COPY start.sh /start.sh
+RUN chmod +x /start.sh
 
 EXPOSE 8080
 

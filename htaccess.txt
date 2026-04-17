@@ -1,0 +1,23 @@
+Options -Indexes
+
+# ── MIME types required for PWA installability ────────────────
+# Without these, Chrome silently rejects the manifest and
+# beforeinstallprompt NEVER fires.
+AddType application/manifest+json   .json
+AddType application/javascript      .js
+AddType image/png                   .png
+
+# Service Worker must be served with no-cache headers
+<Files "sw.js">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+    Header set Pragma "no-cache"
+    Header set Expires "0"
+</Files>
+
+# Protect db.php from direct browser access
+<Files "db.php">
+    Require all denied
+</Files>
+
+# Allow everything else
+RewriteEngine On

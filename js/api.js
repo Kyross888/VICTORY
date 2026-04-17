@@ -154,89 +154,133 @@ function fmt(n) {
     return '₱' + parseFloat(n || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
-// ── PWA: Register Service Worker + inject manifest ───────────
+// ── PWA: Register Service Worker + Install Prompt ────────────
 (function initPWA() {
-  // Inject <link rel="manifest"> into <head> automatically
-  if (!document.querySelector('link[rel="manifest"]')) {
-    const link = document.createElement('link');
-    link.rel  = 'manifest';
-    link.href = '/manifest.json';
-    document.head.appendChild(link);
-  }
 
-  // Inject theme-color meta tag
-  if (!document.querySelector('meta[name="theme-color"]')) {
-    const meta = document.createElement('meta');
-    meta.name    = 'theme-color';
-    meta.content = '#4f46e5';
-    document.head.appendChild(meta);
-  }
-
-  // Register the service worker
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js')
-        .then(reg => console.log('[PWA] Service Worker registered. Scope:', reg.scope))
-        .catch(err => console.warn('[PWA] Service Worker registration failed:', err));
-    });
-  }
-
-  // ── Install prompt (Add to Home Screen) ──────────────────
-  let deferredPrompt = null;
-
-  window.addEventListener('beforeinstallprompt', e => {
-    e.preventDefault();
-    deferredPrompt = e;
-
-    // Show a subtle install banner if one doesn't exist yet
-    if (!document.getElementById('pwa-install-banner')) {
-      const banner = document.createElement('div');
-      banner.id = 'pwa-install-banner';
-      banner.innerHTML = `
-        <span>📲 Install Luna's POS as an app</span>
-        <button id="pwa-install-btn">Install</button>
-        <button id="pwa-dismiss-btn">✕</button>
-      `;
-      Object.assign(banner.style, {
-        position: 'fixed', bottom: '16px', left: '50%',
-        transform: 'translateX(-50%)',
-        background: '#4f46e5', color: 'white',
-        padding: '12px 20px', borderRadius: '12px',
-        display: 'flex', alignItems: 'center', gap: '12px',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.25)',
-        zIndex: '9999', fontSize: '14px', fontWeight: '500',
-        whiteSpace: 'nowrap',
-      });
-
-      const btnStyle = {
-        background: 'white', color: '#4f46e5',
-        border: 'none', borderRadius: '8px',
-        padding: '6px 14px', cursor: 'pointer',
-        fontWeight: '700', fontSize: '13px',
-      };
-      const installBtn  = banner.querySelector('#pwa-install-btn');
-      const dismissBtn  = banner.querySelector('#pwa-dismiss-btn');
-      Object.assign(installBtn.style,  btnStyle);
-      Object.assign(dismissBtn.style, { ...btnStyle, background: 'transparent', color: 'white', padding: '6px' });
-
-      installBtn.addEventListener('click', async () => {
-        if (!deferredPrompt) return;
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        console.log('[PWA] Install prompt outcome:', outcome);
-        deferredPrompt = null;
-        banner.remove();
-      });
-
-      dismissBtn.addEventListener('click', () => banner.remove());
-
-      document.body.appendChild(banner);
+    // ── 1. Register Service Worker ────────────────────────────
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js')
+                .then(reg => console.log('[PWA] SW registered. Scope:', reg.scope))
+                .catch(err => console.warn('[PWA] SW registration failed:', err));
+        });
     }
-  });
 
-  window.addEventListener('appinstalled', () => {
-    console.log('[PWA] Luna\'s POS installed successfully!');
-    const banner = document.getElementById('pwa-install-banner');
-    if (banner) banner.remove();
-  });
+    // ── 2. Detect environment ─────────────────────────────────
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isInStandaloneMode = window.matchMedia('(display-mode: standalone)').matches
+        || window.navigator.standalone === true;
+
+    // Already installed — don't show any prompt
+    if (isInStandaloneMode) return;
+
+    // ── 3. Android / Chrome: beforeinstallprompt ─────────────
+    let deferredPrompt = null;
+
+    window.addEventListener('beforeinstallprompt', e => {
+        e.preventDefault();
+        deferredPrompt = e;
+        console.log('[PWA] beforeinstallprompt captured');
+        showInstallBanner('android');
+    });
+
+    window.addEventListener('appinstalled', () => {
+        console.log('[PWA] App installed!');
+        removeBanner();
+        deferredPrompt = null;
+    });
+
+    // ── 4. iOS Safari: no beforeinstallprompt exists ──────────
+    // Show manual instructions instead
+    if (isIOS) {
+        // Small delay so page finishes rendering before banner appears
+        setTimeout(() => showInstallBanner('ios'), 2000);
+    }
+
+    // ── Banner builder ────────────────────────────────────────
+    function showInstallBanner(type) {
+        if (document.getElementById('pwa-install-banner')) return;
+
+        const banner = document.createElement('div');
+        banner.id = 'pwa-install-banner';
+
+        if (type === 'ios') {
+            banner.innerHTML = `
+                <span>📲 Install Luna's POS: tap <strong>Share</strong> then <strong>"Add to Home Screen"</strong></span>
+                <button id="pwa-dismiss-btn">✕</button>`;
+        } else {
+            banner.innerHTML = `
+                <span>📲 Install Luna's POS as an app</span>
+                <button id="pwa-install-btn">Install</button>
+                <button id="pwa-dismiss-btn">✕</button>`;
+        }
+
+        Object.assign(banner.style, {
+            position: 'fixed',
+            bottom: '16px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: '#4f46e5',
+            color: 'white',
+            padding: '12px 20px',
+            borderRadius: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+            zIndex: '9999',
+            fontSize: '14px',
+            fontWeight: '500',
+            maxWidth: '90vw',
+            flexWrap: 'wrap',
+        });
+
+        const sharedBtnStyle = {
+            border: 'none',
+            borderRadius: '8px',
+            padding: '6px 14px',
+            cursor: 'pointer',
+            fontWeight: '700',
+            fontSize: '13px',
+            flexShrink: '0',
+        };
+
+        const installBtn = banner.querySelector('#pwa-install-btn');
+        if (installBtn) {
+            Object.assign(installBtn.style, {
+                ...sharedBtnStyle,
+                background: 'white',
+                color: '#4f46e5',
+            });
+            installBtn.addEventListener('click', async () => {
+                if (!deferredPrompt) return;
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log('[PWA] Outcome:', outcome);
+                deferredPrompt = null;
+                removeBanner();
+            });
+        }
+
+        const dismissBtn = banner.querySelector('#pwa-dismiss-btn');
+        Object.assign(dismissBtn.style, {
+            ...sharedBtnStyle,
+            background: 'transparent',
+            color: 'white',
+            padding: '6px 8px',
+        });
+        dismissBtn.addEventListener('click', removeBanner);
+
+        // Wait for body to exist (script may run before body on some pages)
+        const attach = () => document.body
+            ? document.body.appendChild(banner)
+            : setTimeout(attach, 50);
+        attach();
+    }
+
+    function removeBanner() {
+        const b = document.getElementById('pwa-install-banner');
+        if (b) b.remove();
+    }
+
 })();

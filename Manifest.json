@@ -1,11 +1,11 @@
- ],
+],
   "screenshots": [],
   "shortcuts": [
     {
       "name": "POS Terminal",
       "short_name": "POS",
       "description": "Open the cashier terminal",
-      "url": "/pos_terminal.html",
+      "url": "/login.html",
       "icons": [
         {
           "src": "img/icon-192.png",

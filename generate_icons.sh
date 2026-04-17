@@ -1,12 +1,12 @@
 #!/bin/bash
 # ============================================================
-#  generate_icons.sh
+#  generate_pwa_icons.sh
 #  Run this ONCE on your server to create the PNG icons
 #  required for PWA installability.
 #
 #  Usage:
-#    chmod +x generate_icons.sh
-#    bash generate_icons.sh
+#    chmod +x generate_pwa_icons.sh
+#    bash generate_pwa_icons.sh
 #
 #  Requires: ImageMagick (apt install imagemagick)
 # ============================================================
@@ -22,14 +22,23 @@ fi
 echo "Installing ImageMagick if needed..."
 apt-get install -y imagemagick 2>/dev/null || true
 
-echo "Generating img/icon-192.png ..."
-convert "$SOURCE" -resize 192x192! img/icon-192.png
+# Create img directory if it doesn't exist
+mkdir -p img
 
-echo "Generating img/icon-512.png ..."
+echo "Generating icons..."
+
+# Generate all required icon sizes
+convert "$SOURCE" -resize 72x72! img/icon-72.png
+convert "$SOURCE" -resize 96x96! img/icon-96.png
+convert "$SOURCE" -resize 128x128! img/icon-128.png
+convert "$SOURCE" -resize 144x144! img/icon-144.png
+convert "$SOURCE" -resize 152x152! img/icon-152.png
+convert "$SOURCE" -resize 192x192! img/icon-192.png
+convert "$SOURCE" -resize 384x384! img/icon-384.png
 convert "$SOURCE" -resize 512x512! img/icon-512.png
 
 echo ""
 echo "Done! Icons created:"
-ls -lh img/icon-192.png img/icon-512.png
+ls -lh img/icon-*.png
 echo ""
-echo "Now rebuild/restart your Docker container."
+echo "Now restart your Docker container or refresh the website."
